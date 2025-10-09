@@ -30,18 +30,8 @@
         <div class="record-details col-12 col-md-7">
             <div class="btn-toolbar mb-4">
                 <div id="add-edit-delete-group" class="btn-group">
-                    <?php if (
-                        can('add', PRIV_CUSTOMERS) &&
-                        (!setting('limit_customer_access') || vars('role_slug') === DB_SLUG_ADMIN)
-                    ): ?>
-                        <button id="add-customer" class="btn btn-primary">
-                            <i class="fas fa-plus-square me-2"></i>
-                            <?= lang('add') ?>
-                        </button>
-                    <?php endif; ?>
-
                     <?php if (can('edit', PRIV_CUSTOMERS)): ?>
-                        <button id="edit-customer" class="btn btn-outline-secondary" disabled="disabled">
+                        <button id="edit-customer" class="btn btn-primary" disabled="disabled">
                             <i class="fas fa-edit me-2"></i>
                             <?= lang('edit') ?>
                         </button>

@@ -40,7 +40,7 @@
                 <a href="<?= site_url('customers') ?>" class="nav-link"
                    data-tippy-content="<?= lang('manage_customers_hint') ?>">
                     <i class="fas fa-user-friends me-2"></i>
-                    <?= lang('customers') ?>
+                    Usuarios
                 </a>
             </li>
 
@@ -68,15 +68,15 @@
                 <a class="nav-link dropdown-toggle" href="#" data-bs-toggle="dropdown"
                    data-tippy-content="<?= lang('manage_users_hint') ?>">
                     <i class="fas fa-users me-2"></i>
-                    <?= lang('users') ?>
+                    Grupos
                 </a>
                 <div class="dropdown-menu dropdown-menu-end">
                     <a class="dropdown-item" href="<?= site_url('providers') ?>">
                         <?= lang('providers') ?>
                     </a>
-                    <a class="dropdown-item" href="<?= site_url('secretaries') ?>">
+                    <!-- <a class="dropdown-item" href="<?= site_url('secretaries') ?>">
                         <?= lang('secretaries') ?>
-                    </a>
+                    </a> -->
                     <a class="dropdown-item" href="<?= site_url('admins') ?>">
                         <?= lang('admins') ?>
                     </a>

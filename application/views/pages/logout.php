@@ -10,16 +10,12 @@
     </small>
 </p>
 
-<div class="d-flex justify-content-between my-5">
-    <a href="<?= site_url('login') ?>" class="btn btn-outline-secondary btn-large">
-        <i class="fas fa-wrench me-2"></i>
-        <?= lang('backend_section') ?>
+<div class="d-flex justify-content-center my-4">
+    <a href="<?= site_url() ?>" class="btn btn-primary btn-large my-1">
+        <i class="fa-solid fa-right-to-bracket mx-1"></i>
+        Iniciar sesión
     </a>
-
-    <a href="<?= site_url() ?>" class="btn btn-primary btn-large">
-        <i class="fas fa-calendar-alt me-2"></i>
-        <?= lang('book_appointment_title') ?>
-    </a>
+    
 </div>
 
 <?php end_section('content'); ?>

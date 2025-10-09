@@ -9,19 +9,14 @@
 <div class="mb-5">
     <h4 class="mb-5"><?= lang('appointment_registered') ?></h4>
 
-    <p>
-        <?= lang('appointment_details_was_sent_to_you') ?>
-    </p>
-
-    <p class="mb-5 text-muted">
-        <small>
-            <?= lang('check_spam_folder') ?>
-        </small>
-    </p>
-
     <a href="<?= site_url() ?>" class="btn btn-primary btn-large">
         <i class="fas fa-calendar-alt me-2"></i>
-        <?= lang('go_to_booking_page') ?>
+        Realizar otra reserva
+    </a>
+
+    <a class="btn btn-secondary btn-large mx-2" href="<?= site_url('logout') ?>">
+        <i class="fa-solid fa-arrow-right-from-bracket"></i>
+        <?= lang('log_out') ?>
     </a>
 </div>
 
