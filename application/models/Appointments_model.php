@@ -150,9 +150,21 @@ class Appointments_model extends EA_Model
                 ->num_rows();
 
             if (!$count) {
-                throw new InvalidArgumentException(
-                    'The appointment customer ID was not found in the database: ' . $appointment['id_users_customer'],
-                );
+                // Check if the user exists with admin role (special case for admin creating appointments)
+                $admin_count = $this->db
+                    ->select()
+                    ->from('users')
+                    ->join('roles', 'roles.id = users.id_roles', 'inner')
+                    ->where('users.id', $appointment['id_users_customer'])
+                    ->where('roles.slug', DB_SLUG_ADMIN)
+                    ->get()
+                    ->num_rows();
+                
+                if (!$admin_count) {
+                    throw new InvalidArgumentException(
+                        'The appointment customer ID was not found in the database: ' . $appointment['id_users_customer'],
+                    );
+                }
             }
 
             // Make sure the service ID really exists in the database.

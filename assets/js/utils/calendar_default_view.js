@@ -1492,7 +1492,7 @@ App.Utils.CalendarDefaultView = (function () {
                 throw new Error('Invalid time format setting provided: ' + vars('time_format'));
         }
 
-        const initialView = window.innerWidth < 468 ? 'timeGridDay' : 'timeGridWeek';
+        const initialView = window.innerWidth < 468 ? 'timeGridDay' : 'dayGridMonth';
 
         const firstWeekday = vars('first_weekday');
         const firstWeekdayNumber = App.Utils.Date.getWeekdayId(firstWeekday);
@@ -1587,20 +1587,29 @@ App.Utils.CalendarDefaultView = (function () {
                 .find('optgroup:eq(0)')
                 .find('option[value="' + vars('user_id') + '"]')
                 .prop('selected', true);
+        } else {
+            // For non-provider users, default to "All" (Todo)
+            $selectFilterItem.val(FILTER_TYPE_ALL).prop('selected', true);
         }
 
         // Add the page event listeners.
         addEventListeners();
 
-        const localSelectFilterItemValue = window.localStorage.getItem('EasyAppointments.SelectFilterItem');
+        // Only use localStorage for providers, force "All" for others
+        if (vars('role_slug') === App.Layouts.Backend.DB_SLUG_PROVIDER) {
+            const localSelectFilterItemValue = window.localStorage.getItem('EasyAppointments.SelectFilterItem');
 
-        if (
-            localSelectFilterItemValue &&
-            $selectFilterItem.find(`option[value="${localSelectFilterItemValue}"]`).length
-        ) {
-            $selectFilterItem.val(localSelectFilterItemValue).trigger('change');
+            if (
+                localSelectFilterItemValue &&
+                $selectFilterItem.find(`option[value="${localSelectFilterItemValue}"]`).length
+            ) {
+                $selectFilterItem.val(localSelectFilterItemValue).trigger('change');
+            } else {
+                $reloadAppointments.trigger('click');
+            }
         } else {
-            $reloadAppointments.trigger('click');
+            // Force "All" selection and trigger refresh
+            $selectFilterItem.val(FILTER_TYPE_ALL).trigger('change');
         }
 
         // Display the edit dialog if an appointment hash is provided.
