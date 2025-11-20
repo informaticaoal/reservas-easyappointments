@@ -939,7 +939,7 @@ App.Pages.Booking = (function () {
                     <i class="fas fa-calendar-day me-2"></i>
                     ${formattedSelectedDate}
                 </div> 
-                <div class="mb-2">
+                <div class="mb-2" style="display:none;">
                     <i class="fas fa-clock me-2"></i>
                     ${service.duration} ${lang('minutes')}
                 </div>
