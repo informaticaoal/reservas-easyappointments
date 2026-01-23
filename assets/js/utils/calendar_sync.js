@@ -18,6 +18,7 @@
  */
 App.Utils.CalendarSync = (function () {
     const $selectFilterItem = $('#select-filter-item');
+    const $enableSync = $('#enable-sync');
     const $disableSync = $('#disable-sync');
     const $triggerSync = $('#trigger-sync');
     const $syncButtonGroup = $('#sync-button-group');

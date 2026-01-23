@@ -47,6 +47,7 @@ class Services_model extends EA_Model
         'attendantsNumber' => 'attendants_number',
         'isPrivate' => 'is_private',
         'serviceCategoryId' => 'id_service_categories',
+        'bookingType' => 'booking_type',
     ];
 
     /**

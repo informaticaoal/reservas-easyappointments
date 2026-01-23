@@ -121,6 +121,21 @@
             </div>
 
             <div class="mb-3">
+                <label class="form-label" for="booking-type">
+                    Tipo de Reserva
+
+                </label>
+                <select id="booking-type" class="form-select" disabled>
+                    <option value="hours">
+                        Por Horas
+                    </option>
+                    <option value="days">
+                        Por Tramo de Días
+                    </option>
+                </select>
+            </div>
+
+            <div class="mb-3">
                 <label class="form-label" for="attendants-number" disabled>
                     <?= lang('attendants_number') ?>
                     <span class="text-danger" hidden>*</span>

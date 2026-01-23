@@ -30,6 +30,7 @@ class Services extends EA_Controller
         'color',
         'location',
         'availabilities_type',
+        'booking_type',
         'attendants_number',
         'is_private',
         'id_service_categories',

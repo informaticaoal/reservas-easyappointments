@@ -74,6 +74,178 @@ App.Pages.Booking = (function () {
         }
     }
 
+    let currentDatePickerMode = 'single';
+    let monthTimeout;
+    let dayRangeStartDate = null; // Para almacenar la fecha de inicio del tramo
+
+    /**
+     * Initialize or reinitialize the date picker with a specific mode
+     * @param {string} mode - 'single' or 'range'
+     */
+    function initializeDatePickerWithMode(mode) {
+        // Destroy existing instance if it exists
+        const existingInstance = $selectDate[0]._flatpickr;
+        if (existingInstance) {
+            existingInstance.destroy();
+        }
+        
+        currentDatePickerMode = mode;
+        dayRangeStartDate = null; // Reset the start date
+
+        // Function to check if a date is a weekend (Saturday=6, Sunday=0)
+        const isWeekend = (date) => {
+            const day = date.getDay();
+            return day === 0 || day === 6;
+        };
+
+        const flatpickrConfig = {
+            inline: true,
+            mode: mode,
+            minDate: moment().add(1, 'day').set({hours: 0, minutes: 0, seconds: 0}).toDate(),
+            maxDate: moment().add(vars('future_booking_limit'), 'days').toDate(),
+            // Only disable weekends in 'single' mode (for hours and full-day)
+            // In 'range' mode, weekends must be selectable so the range can span across them
+            // (weekends will be excluded from the count, not from selection)
+            disable: mode === 'single' ? [isWeekend] : [],
+            onChange: (selectedDates, dateStr, instance) => {
+                const appointmentType = $('#select-appointment-type').val();
+                const serviceId = $selectService.val();
+                const service = vars('available_services').find(
+                    (availableService) => Number(availableService.id) === Number(serviceId),
+                );
+                
+                const isDayRange = appointmentType === 'day-range' || (service && service.booking_type === 'days');
+                
+                if (isDayRange) {
+                    // Update the day range display
+                    if (selectedDates.length >= 1) {
+                        const startDate = moment(selectedDates[0]);
+                        $('#day-range-start-display').text(startDate.format('DD/MM/YYYY'));
+                        
+                        if (selectedDates.length === 2) {
+                            const endDate = moment(selectedDates[1]);
+                            $('#day-range-end-display').text(endDate.format('DD/MM/YYYY'));
+                            
+                            // Calculate total WORKDAYS only (exclude weekends)
+                            let workdays = 0;
+                            let currentDay = startDate.clone();
+                            while (currentDay.isSameOrBefore(endDate)) {
+                                const dayOfWeek = currentDay.day();
+                                // 0 = Sunday, 6 = Saturday
+                                if (dayOfWeek !== 0 && dayOfWeek !== 6) {
+                                    workdays++;
+                                }
+                                currentDay.add(1, 'day');
+                            }
+                            
+                            $('#day-range-days-count').text(workdays);
+                            $('#day-range-total').show();
+                            
+                            // Both dates selected - update confirm frame
+                            App.Pages.Booking.updateConfirmFrame();
+                        } else {
+                            $('#day-range-end-display').text('-');
+                            $('#day-range-total').hide();
+                        }
+                    } else {
+                        $('#day-range-start-display').text('-');
+                        $('#day-range-end-display').text('-');
+                        $('#day-range-total').hide();
+                    }
+                } else {
+                    // For regular bookings: get available hours
+                    if (selectedDates.length > 0) {
+                        App.Http.Booking.getAvailableHours(moment(selectedDates[0]).format('YYYY-MM-DD'));
+                    }
+                    App.Pages.Booking.updateConfirmFrame();
+                }
+            },
+
+            onMonthChange: (selectedDates, dateStr, instance) => {
+                // In range mode, don't reload unavailable dates - it breaks the range selection
+                // Weekends are already disabled via the isWeekend function
+                const isRangeMode = instance.config.mode === 'range';
+                
+                if (isRangeMode) {
+                    // Just restore opacity, don't reload dates
+                    $selectDate.parent().fadeTo(400, 1);
+                    return;
+                }
+                
+                $selectDate.parent().fadeTo(400, 0.3); // Change opacity during loading
+
+                if (monthTimeout) {
+                    clearTimeout(monthTimeout);
+                }
+
+                monthTimeout = setTimeout(() => {
+                    // Use displayed month instead of selected date for navigation
+                    const displayedMonthMoment = moment(
+                        instance.currentYearElement.value +
+                            '-' +
+                            String(Number(instance.monthsDropdownContainer.value) + 1).padStart(2, '0') +
+                            '-01',
+                    );
+
+                    // For month change step calculation, use first day of previous displayed month if no selection
+                    let previousMoment;
+                    if (instance.selectedDates.length > 0) {
+                        previousMoment = moment(instance.selectedDates[0]);
+                    } else {
+                        previousMoment = displayedMonthMoment.clone().subtract(1, 'month');
+                    }
+
+                    const monthChangeStep = detectDatepickerMonthChangeStep(previousMoment, displayedMonthMoment);
+
+                    App.Http.Booking.getUnavailableDates(
+                        $selectProvider.val(),
+                        $selectService.val(),
+                        displayedMonthMoment.format('YYYY-MM-DD'),
+                        monthChangeStep,
+                    );
+                }, 500);
+            },
+
+            onYearChange: (selectedDates, dateStr, instance) => {
+                // In range mode, don't reload unavailable dates
+                const isRangeMode = instance.config.mode === 'range';
+                
+                if (isRangeMode) {
+                    $selectDate.parent().fadeTo(400, 1);
+                    return;
+                }
+                
+                setTimeout(() => {
+                    const displayedMonthMoment = moment(
+                        instance.currentYearElement.value +
+                            '-' +
+                            String(Number(instance.monthsDropdownContainer.value) + 1).padStart(2, '0') +
+                            '-01',
+                    );
+
+                    let previousMoment;
+                    if (instance.selectedDates.length > 0) {
+                        previousMoment = moment(instance.selectedDates[0]);
+                    } else {
+                        previousMoment = displayedMonthMoment.clone().subtract(1, 'year');
+                    }
+
+                    const monthChangeStep = detectDatepickerMonthChangeStep(previousMoment, displayedMonthMoment);
+
+                    App.Http.Booking.getUnavailableDates(
+                        $selectProvider.val(),
+                        $selectService.val(),
+                        displayedMonthMoment.format('YYYY-MM-DD'),
+                        monthChangeStep,
+                    );
+                }, 500);
+            },
+        };
+
+        // Create the flatpickr instance directly for better control
+        $selectDate[0]._flatpickr = flatpickr($selectDate[0], flatpickrConfig);
+    }
+
     /**
      * Initialize the module.
      */
@@ -113,68 +285,9 @@ App.Pages.Booking = (function () {
 
         // Initialize page's components (tooltips, date pickers etc).
         tippy('[data-tippy-content]');
-
-        let monthTimeout;
-
-        App.Utils.UI.initializeDatePicker($selectDate, {
-            inline: true,
-            minDate: moment().subtract(1, 'day').set({hours: 23, minutes: 59, seconds: 59}).toDate(),
-            maxDate: moment().add(vars('future_booking_limit'), 'days').toDate(),
-            onChange: (selectedDates) => {
-                App.Http.Booking.getAvailableHours(moment(selectedDates[0]).format('YYYY-MM-DD'));
-                App.Pages.Booking.updateConfirmFrame();
-            },
-
-            onMonthChange: (selectedDates, dateStr, instance) => {
-                $selectDate.parent().fadeTo(400, 0.3); // Change opacity during loading
-
-                if (monthTimeout) {
-                    clearTimeout(monthTimeout);
-                }
-
-                monthTimeout = setTimeout(() => {
-                    const previousMoment = moment(instance.selectedDates[0]);
-
-                    const displayedMonthMoment = moment(
-                        instance.currentYearElement.value +
-                            '-' +
-                            String(Number(instance.monthsDropdownContainer.value) + 1).padStart(2, '0') +
-                            '-01',
-                    );
-
-                    const monthChangeStep = detectDatepickerMonthChangeStep(previousMoment, displayedMonthMoment);
-
-                    App.Http.Booking.getUnavailableDates(
-                        $selectProvider.val(),
-                        $selectService.val(),
-                        displayedMonthMoment.format('YYYY-MM-DD'),
-                        monthChangeStep,
-                    );
-                }, 500);
-            },
-
-            onYearChange: (selectedDates, dateStr, instance) => {
-                setTimeout(() => {
-                    const previousMoment = moment(instance.selectedDates[0]);
-
-                    const displayedMonthMoment = moment(
-                        instance.currentYearElement.value +
-                            '-' +
-                            (Number(instance.monthsDropdownContainer.value) + 1) +
-                            '-01',
-                    );
-
-                    const monthChangeStep = detectDatepickerMonthChangeStep(previousMoment, displayedMonthMoment);
-
-                    App.Http.Booking.getUnavailableDates(
-                        $selectProvider.val(),
-                        $selectService.val(),
-                        displayedMonthMoment.format('YYYY-MM-DD'),
-                        monthChangeStep,
-                    );
-                }, 500);
-            },
-        });
+        
+        // Initialize the date picker with single mode by default
+        initializeDatePickerWithMode('single');
 
         App.Utils.UI.setDateTimePickerValue($selectDate, new Date());
 
@@ -350,15 +463,20 @@ App.Pages.Booking = (function () {
         // Get dates where ANY user already has this service booked
         App.Http.Booking.getCustomerServiceDates(serviceId)
             .done((bookedDates) => {
-                if (!bookedDates || bookedDates.length === 0) {
-                    return;
-                }
-
                 // Get current flatpickr instance
                 const flatpickrInstance = $selectDate[0]._flatpickr;
                 if (!flatpickrInstance) {
                     return;
                 }
+
+                // Check if we're in range mode - don't disable weekends in range mode
+                const isRangeMode = flatpickrInstance.config.mode === 'range';
+
+                // Function to check if a date is a weekend (only for full-day mode, not range)
+                const isWeekend = (date) => {
+                    const day = date.getDay();
+                    return day === 0 || day === 6;
+                };
 
                 // Get currently selected date
                 const currentSelectedDate = App.Utils.UI.getDateTimePickerValue($selectDate);
@@ -367,41 +485,53 @@ App.Pages.Booking = (function () {
                     : null;
 
                 // Disable the booked dates in the date picker (for full-day mode)
-                const disabledDates = bookedDates.map(date => new Date(date + 'T00:00'));
+                const disabledDates = (bookedDates || []).map(date => new Date(date + 'T00:00'));
                 
-                // Get existing disabled dates from unavailability
-                const existingDisabled = flatpickrInstance.config.disable || [];
+                // Get existing disabled dates from unavailability (filter out functions to avoid duplicates)
+                const existingDisabled = (flatpickrInstance.config.disable || []).filter(d => d instanceof Date);
                 
-                // Combine both disabled date arrays
-                const allDisabled = [...existingDisabled, ...disabledDates];
+                // In range mode: only disable booked dates (weekends must be selectable)
+                // In single mode: disable weekends + booked dates
+                const allDisabled = isRangeMode 
+                    ? [...existingDisabled, ...disabledDates]
+                    : [isWeekend, ...existingDisabled, ...disabledDates];
                 flatpickrInstance.set('disable', allDisabled);
 
-                // If the currently selected date has bookings, find next available date
-                if (currentSelectedDateStr && bookedDates.includes(currentSelectedDateStr)) {
-                    let nextDate = moment(currentSelectedDate).add(1, 'day');
-                    const maxDate = moment().add(vars('future_booking_limit'), 'days');
+                // Only auto-advance date in single mode (full-day), not in range mode
+                if (!isRangeMode) {
+                    // If the currently selected date has bookings or is a weekend, find next available date
+                    const currentDayOfWeek = currentSelectedDate ? currentSelectedDate.getDay() : null;
+                    const isCurrentDateWeekend = currentDayOfWeek === 0 || currentDayOfWeek === 6;
+                    const isCurrentDateBooked = currentSelectedDateStr && bookedDates && bookedDates.includes(currentSelectedDateStr);
                     
-                    // Find the next date that is not booked and not unavailable
-                    while (nextDate.isSameOrBefore(maxDate)) {
-                        const nextDateStr = nextDate.format('YYYY-MM-DD');
+                    if (isCurrentDateWeekend || isCurrentDateBooked) {
+                        let nextDate = moment(currentSelectedDate || new Date()).add(1, 'day');
+                        const maxDate = moment().add(vars('future_booking_limit'), 'days');
                         
-                        // Check if this date is available (not booked and not in disabled dates)
-                        const isBooked = bookedDates.includes(nextDateStr);
-                        const isDisabled = existingDisabled.some(disabledDate => {
-                            if (disabledDate instanceof Date) {
-                                return moment(disabledDate).format('YYYY-MM-DD') === nextDateStr;
+                        // Find the next date that is not booked, not unavailable, and not a weekend
+                        while (nextDate.isSameOrBefore(maxDate)) {
+                            const nextDateStr = nextDate.format('YYYY-MM-DD');
+                            const nextDateObj = nextDate.toDate();
+                            
+                            // Check if this date is available (not booked, not disabled, not weekend)
+                            const isBooked = bookedDates && bookedDates.includes(nextDateStr);
+                            const isWeekendDay = nextDateObj.getDay() === 0 || nextDateObj.getDay() === 6;
+                            const isDisabledDate = existingDisabled.some(disabledDate => {
+                                if (disabledDate instanceof Date) {
+                                    return moment(disabledDate).format('YYYY-MM-DD') === nextDateStr;
+                                }
+                                return false;
+                            });
+                            
+                            if (!isBooked && !isDisabledDate && !isWeekendDay) {
+                                // Found an available date
+                                App.Utils.UI.setDateTimePickerValue($selectDate, nextDate.toDate());
+                                App.Http.Booking.getAvailableHours(nextDateStr);
+                                break;
                             }
-                            return false;
-                        });
-                        
-                        if (!isBooked && !isDisabled) {
-                            // Found an available date
-                            App.Utils.UI.setDateTimePickerValue($selectDate, nextDate.toDate());
-                            App.Http.Booking.getAvailableHours(nextDateStr);
-                            break;
+                            
+                            nextDate.add(1, 'day');
                         }
-                        
-                        nextDate.add(1, 'day');
                     }
                 }
             })
@@ -428,18 +558,43 @@ App.Pages.Booking = (function () {
             
             if (appointmentType === 'hours') {
                 $hoursContainer.show();
-                // For hourly appointments, allow selecting today
-                updateDatePickerMinDate(moment().subtract(1, 'day').set({hours: 23, minutes: 59, seconds: 59}).toDate());
+                $('#day-range-container').hide();
+                
+                // Reinitialize date picker in single mode
+                initializeDatePickerWithMode('single');
                 
                 // Re-enable all dates (remove custom disabled dates from full-day mode)
                 App.Http.Booking.applyPreviousUnavailableDates();
-            } else {
+                
+                // Get available hours for the selected date
+                const selectedDate = App.Utils.UI.getDateTimePickerValue($selectDate);
+                if (selectedDate) {
+                    App.Http.Booking.getAvailableHours(moment(selectedDate).format('YYYY-MM-DD'));
+                }
+            } else if (appointmentType === 'full-day') {
                 $hoursContainer.hide();
+                $('#day-range-container').hide();
                 // Clear selected hour when switching to full-day
                 $availableHours.find('.selected-hour').removeClass('selected-hour');
                 
-                // For full-day appointments, don't allow selecting today (must be tomorrow or later)
-                updateDatePickerMinDate(moment().add(1, 'day').set({hours: 0, minutes: 0, seconds: 0}).toDate());
+                // Reinitialize date picker in single mode
+                initializeDatePickerWithMode('single');
+                
+                // Check for existing bookings and disable those dates
+                checkAndDisableBookedDates();
+            } else if (appointmentType === 'day-range') {
+                $hoursContainer.hide();
+                $('#day-range-container').show();
+                // Clear selected hour when switching to day-range
+                $availableHours.find('.selected-hour').removeClass('selected-hour');
+                
+                // Reset the day range display
+                $('#day-range-start-display').text('-');
+                $('#day-range-end-display').text('-');
+                $('#day-range-total').hide();
+                
+                // Reinitialize date picker in RANGE mode for selecting start and end dates
+                initializeDatePickerWithMode('range');
                 
                 // Check for existing bookings and disable those dates
                 checkAndDisableBookedDates();
@@ -451,8 +606,13 @@ App.Pages.Booking = (function () {
         // Initialize visibility on page load
         if ($selectAppointmentType.val() === 'hours') {
             $hoursContainer.show();
+            $('#day-range-container').hide();
+        } else if ($selectAppointmentType.val() === 'day-range') {
+            $hoursContainer.hide();
+            $('#day-range-container').show();
         } else {
             $hoursContainer.hide();
+            $('#day-range-container').hide();
         }
 
         /**
@@ -544,6 +704,56 @@ App.Pages.Booking = (function () {
                 $(new Option(lang('any_provider'), 'any-provider')).insertAfter($selectProvider.find('option:first'));
             }
 
+            // Check if the selected service uses day-range booking
+            const service = vars('available_services').find(
+                (availableService) => Number(availableService.id) === Number(serviceId),
+            );
+            
+            if (service) {
+                if (service.booking_type === 'days') {
+                    // Service is configured for day-range: auto-select day-range and hide selector
+                    $('#select-appointment-type').val('day-range');
+                    $('#hours-container').hide();
+                    $('#day-range-container').show();
+                    $('#select-appointment-type').closest('.mb-3').hide();
+                    
+                    // Reset the day range display
+                    $('#day-range-start-display').text('-');
+                    $('#day-range-end-display').text('-');
+                    $('#day-range-total').hide();
+                    
+                    // Reinitialize date picker in range mode
+                    initializeDatePickerWithMode('range');
+                } else {
+                    // Show appointment type selector (Por Horas / Día entero / Por Tramo de Días)
+                    const $appointmentTypeContainer = $('#select-appointment-type').closest('.mb-3');
+                    $appointmentTypeContainer.show();
+                    
+                    // Get the current appointment type and update visibility
+                    const appointmentType = $('#select-appointment-type').val() || 'hours';
+                    
+                    // If day-range was selected but service doesn't support it, reset to hours
+                    if (appointmentType === 'day-range') {
+                        $('#select-appointment-type').val('hours');
+                        $('#hours-container').show();
+                        $('#day-range-container').hide();
+                        initializeDatePickerWithMode('single');
+                    } else if (appointmentType === 'hours') {
+                        $('#hours-container').show();
+                        $('#day-range-container').hide();
+                        if (currentDatePickerMode !== 'single') {
+                            initializeDatePickerWithMode('single');
+                        }
+                    } else {
+                        $('#hours-container').hide();
+                        $('#day-range-container').hide();
+                        if (currentDatePickerMode !== 'single') {
+                            initializeDatePickerWithMode('single');
+                        }
+                    }
+                }
+            }
+
             App.Http.Booking.getUnavailableDates(
                 $selectProvider.val(),
                 $target.val(),
@@ -612,17 +822,39 @@ App.Pages.Booking = (function () {
 
             // If we are on the 2nd tab then the user should have an appointment hour selected (only if 'hours' is selected).
             if ($target.attr('data-step_index') === '2') {
-                const appointmentType = $('#select-appointment-type').val();
+                const serviceId = $selectService.val();
+                const service = vars('available_services').find(
+                    (availableService) => Number(availableService.id) === Number(serviceId),
+                );
                 
-                if (appointmentType === 'hours' && !$('.selected-hour').length) {
-                    if (!$('#select-hour-prompt').length) {
-                        $('<div/>', {
-                            'id': 'select-hour-prompt',
-                            'class': 'text-danger mb-4',
-                            'text': lang('appointment_hour_missing'),
-                        }).prependTo('#available-hours');
+                const isDayRangeBooking = service && service.booking_type === 'days';
+                
+                if (isDayRangeBooking) {
+                    // For day-range bookings, check if both dates are selected
+                    const flatpickrInstance = $selectDate[0]._flatpickr;
+                    if (!flatpickrInstance || !flatpickrInstance.selectedDates || flatpickrInstance.selectedDates.length !== 2) {
+                        if (!$('#select-date-range-prompt').length) {
+                            $('<div/>', {
+                                'id': 'select-date-range-prompt',
+                                'class': 'text-danger mb-4',
+                                'text': 'Por favor, selecciona una fecha de inicio y una fecha de fin.',
+                            }).prependTo('#select-date');
+                        }
+                        return;
                     }
-                    return;
+                } else {
+                    const appointmentType = $('#select-appointment-type').val();
+                    
+                    if (appointmentType === 'hours' && !$('.selected-hour').length) {
+                        if (!$('#select-hour-prompt').length) {
+                            $('<div/>', {
+                                'id': 'select-hour-prompt',
+                                'class': 'text-danger mb-4',
+                                'text': lang('appointment_hour_missing'),
+                            }).prependTo('#available-hours');
+                        }
+                        return;
+                    }
                 }
             }
 
@@ -881,11 +1113,6 @@ App.Pages.Booking = (function () {
             $displayBookingSelection.text(`${serviceOptionText} │ ${providerOptionText}`);
         }
 
-        // For 'hours' type, require selected hour. For 'full-day' type, skip this check
-        if (appointmentType === 'hours' && !$availableHours.find('.selected-hour').length) {
-            return; // No time is selected, skip the rest of this function...
-        }
-
         // Render the appointment details
 
         const service = vars('available_services').find(
@@ -894,6 +1121,22 @@ App.Pages.Booking = (function () {
 
         if (!service) {
             return; // Service was not found
+        }
+
+        // Check if this is a day-range booking (either from service config or user selection)
+        const isDayRangeBooking = service.booking_type === 'days' || appointmentType === 'day-range';
+        
+        if (isDayRangeBooking) {
+            // For day-range bookings, check if both dates are selected
+            const flatpickrInstance = $selectDate[0]._flatpickr;
+            if (!flatpickrInstance || !flatpickrInstance.selectedDates || flatpickrInstance.selectedDates.length !== 2) {
+                return; // Both dates not selected yet
+            }
+        } else {
+            // For 'hours' type, require selected hour. For 'full-day' type, skip this check
+            if (appointmentType === 'hours' && !$availableHours.find('.selected-hour').length) {
+                return; // No time is selected, skip the rest of this function...
+            }
         }
 
         const selectedDateObject = App.Utils.UI.getDateTimePickerValue($selectDate);
@@ -915,7 +1158,15 @@ App.Pages.Booking = (function () {
         let formattedSelectedDate = '';
 
         if (selectedDateObject) {
-            if (appointmentType === 'full-day') {
+            if (isDayRangeBooking) {
+                // Format date range for day-range bookings
+                const flatpickrInstance = $selectDate[0]._flatpickr;
+                const startDate = moment(flatpickrInstance.selectedDates[0]).format('YYYY-MM-DD');
+                const endDate = moment(flatpickrInstance.selectedDates[1]).format('YYYY-MM-DD');
+                const formattedStartDate = App.Utils.Date.format(startDate, vars('date_format'), vars('time_format'), false);
+                const formattedEndDate = App.Utils.Date.format(endDate, vars('date_format'), vars('time_format'), false);
+                formattedSelectedDate = `${formattedStartDate} - ${formattedEndDate} (Tramo de días)`;
+            } else if (appointmentType === 'full-day') {
                 formattedSelectedDate = App.Utils.Date.format(selectedDate, vars('date_format'), vars('time_format'), false) + ' (Día entero)';
             } else {
                 formattedSelectedDate =
@@ -1029,7 +1280,44 @@ App.Pages.Booking = (function () {
             appointmentNotes += 'Objetos requeridos: ' + customField1Value;
         }
 
-        if (appointmentType === 'full-day') {
+        if (isDayRangeBooking) {
+            // For day-range bookings, create appointments spanning multiple days
+            const flatpickrInstance = $selectDate[0]._flatpickr;
+            const startDate = moment(flatpickrInstance.selectedDates[0]);
+            const endDate = moment(flatpickrInstance.selectedDates[1]);
+            
+            const appointments = [];
+            let currentDate = startDate.clone();
+            
+            // Create one appointment per WORKDAY in the range (exclude weekends)
+            while (currentDate.isSameOrBefore(endDate)) {
+                const dayOfWeek = currentDate.day();
+                
+                // Skip weekends: 0 = Sunday, 6 = Saturday
+                if (dayOfWeek !== 0 && dayOfWeek !== 6) {
+                    const startDatetime = currentDate.format('YYYY-MM-DD') + ' 00:00:00';
+                    const endDatetime = currentDate.format('YYYY-MM-DD') + ' 23:59:59';
+                    
+                    appointments.push({
+                        start_datetime: startDatetime,
+                        end_datetime: endDatetime,
+                        notes: appointmentNotes,
+                        is_unavailability: false,
+                        id_users_provider: $selectProvider.val(),
+                        id_services: $selectService.val(),
+                    });
+                }
+                
+                currentDate.add(1, 'day');
+            }
+            
+            // Store multiple appointments for day-range
+            if (appointments.length > 1) {
+                data.appointments = appointments;
+            } else if (appointments.length === 1) {
+                data.appointment = appointments[0];
+            }
+        } else if (appointmentType === 'full-day') {
             // For full-day appointments, create a single appointment
             const startDatetime = moment(App.Utils.UI.getDateTimePickerValue($selectDate)).format('YYYY-MM-DD') + ' 00:00:00';
             const endDatetime = moment(App.Utils.UI.getDateTimePickerValue($selectDate)).format('YYYY-MM-DD') + ' 23:59:59';

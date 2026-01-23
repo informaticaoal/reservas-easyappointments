@@ -23,6 +23,7 @@ App.Pages.Services = (function () {
     const $currency = $('#currency');
     const $serviceCategoryId = $('#service-category-id');
     const $availabilitiesType = $('#availabilities-type');
+    const $bookingType = $('#booking-type');
     const $attendantsNumber = $('#attendants-number');
     const $isPrivate = $('#is-private');
     const $location = $('#location');
@@ -140,6 +141,7 @@ App.Pages.Services = (function () {
                 location: $location.val(),
                 color: App.Components.ColorSelection.getColor($color),
                 availabilities_type: $availabilitiesType.val(),
+                booking_type: $bookingType.val(),
                 attendants_number: $attendantsNumber.val(),
                 is_private: Number($isPrivate.prop('checked')),
                 id_service_categories: $serviceCategoryId.val() || undefined,
@@ -296,6 +298,7 @@ App.Pages.Services = (function () {
         $description.val(service.description);
         $location.val(service.location);
         $availabilitiesType.val(service.availabilities_type);
+        $bookingType.val(service.booking_type || 'hours');
         $attendantsNumber.val(service.attendants_number);
         $isPrivate.prop('checked', service.is_private);
         App.Components.ColorSelection.setColor($color, service.color);

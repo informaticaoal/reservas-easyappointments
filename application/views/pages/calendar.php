@@ -39,35 +39,11 @@
                     </ul>
                 </div>
             <?php endif; ?>
-
-            <?php if (can('add', PRIV_APPOINTMENTS)): ?>
-                <div class="dropdown d-sm-inline-block">
-                    <button class="btn btn-light" type="button" data-bs-toggle="dropdown">
-                        <i class="fas fa-plus-square"></i>
-                    </button>
-                    <ul class="dropdown-menu">
-                        <li>
-                            <a class="dropdown-item" href="#" id="insert-appointment">
-                                <?= lang('appointment') ?>
-                            </a>
-                        </li>
-                        <li>
-                            <a class="dropdown-item" href="#" id="insert-unavailability">
-                                <?= lang('unavailability') ?>
-                            </a>
-                        </li>
-                        <li>
-                            <a class="dropdown-item" href="#"
-                               id="insert-working-plan-exception" <?= session('role_slug') !== DB_SLUG_ADMIN
-                                   ? 'hidden'
-                                   : '' ?>>
-                                <?= lang('working_plan_exception') ?>
-                            </a>
-                        </li>
-                    </ul>
-                </div>
-            <?php endif; ?>
-
+            <a href="<?= site_url('appointments') ?>">
+                <button class="btn btn-light">
+                    <i class="fas fa-plus-square"></i>
+                </button>      
+            </a>
             <button id="reload-appointments" class="btn btn-light"
                     data-tippy-content="<?= lang('reload_appointments_hint') ?>">
                 <i class="fas fa-sync-alt"></i>

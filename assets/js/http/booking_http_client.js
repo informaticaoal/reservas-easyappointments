@@ -373,17 +373,40 @@ App.Http.Booking = (function () {
             $availableHours.text(lang('no_available_hours'));
         }
 
-        // Grey out unavailable dates.
-        $selectDate[0]._flatpickr.set(
-            'disable',
-            unavailableDates.map((unavailableDate) => new Date(unavailableDate + 'T00:00')),
-        );
+        // Check if we're in range mode - don't auto-select dates and don't disable weekends
+        const flatpickrInstance = $selectDate[0]._flatpickr;
+        const isRangeMode = flatpickrInstance && flatpickrInstance.config.mode === 'range';
 
-        if (setDate && !vars('manage_mode')) {
+        // Preserve selected dates before updating disable config (important for range mode)
+        const preservedDates = isRangeMode ? [...flatpickrInstance.selectedDates] : null;
+
+        // Function to check if a date is a weekend (Saturday=6, Sunday=0)
+        const isWeekend = (date) => {
+            const day = date.getDay();
+            return day === 0 || day === 6;
+        };
+
+        // Build disable array:
+        // - In range mode: only unavailable dates (weekends are allowed so range can span them)
+        // - In single mode: weekends + unavailable dates
+        const disableConfig = isRangeMode 
+            ? unavailableDates.map((unavailableDate) => new Date(unavailableDate + 'T00:00'))
+            : [isWeekend, ...unavailableDates.map((unavailableDate) => new Date(unavailableDate + 'T00:00'))];
+
+        // Grey out unavailable dates
+        flatpickrInstance.set('disable', disableConfig);
+
+        // Restore selected dates in range mode (Flatpickr sometimes clears them when updating disable)
+        if (isRangeMode && preservedDates && preservedDates.length > 0) {
+            flatpickrInstance.setDate(preservedDates, false); // false = don't trigger onChange
+        }
+
+        if (setDate && !vars('manage_mode') && !isRangeMode) {
             for (let i = 1; i <= numberOfDays; i++) {
                 const currentDate = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), i);
+                const isWeekendDay = currentDate.getDay() === 0 || currentDate.getDay() === 6;
 
-                if (unavailableDates.indexOf(moment(currentDate).format('YYYY-MM-DD')) === -1) {
+                if (!isWeekendDay && unavailableDates.indexOf(moment(currentDate).format('YYYY-MM-DD')) === -1) {
                     App.Utils.UI.setDateTimePickerValue($selectDate, currentDate);
                     getAvailableHours(moment(currentDate).format('YYYY-MM-DD'));
                     break;
@@ -393,7 +416,7 @@ App.Http.Booking = (function () {
 
         const dateQueryParam = App.Utils.Url.queryParam('date');
 
-        if (dateQueryParam) {
+        if (dateQueryParam && !isRangeMode) {
             const dateQueryParamMoment = moment(dateQueryParam);
 
             if (

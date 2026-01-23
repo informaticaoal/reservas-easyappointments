@@ -22,10 +22,10 @@
                         </a>
                     <?php else: ?>
                         <!-- Mostrar "Sección de gestión interna" para otros roles -->
-                        <a class="backend-link badge bg-primary text-decoration-none px-2"
+                        <a class="backend-link badge bg-primary text-decoration-none px-2 fs-6"
                            href="<?= site_url('calendar') ?>">
                             <i class="fas fa-sign-in-alt me-2"></i>
-                            <?= lang('backend_section') ?>
+                            Volver al panel de control
                         </a>
                     <?php endif; ?>
                 <?php else: ?>
