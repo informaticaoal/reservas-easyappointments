@@ -9,11 +9,17 @@
 <div id="frame-footer" class="d-flex flex-wrap justify-content-center align-items-center">
     <small>
 
-        <span class="footer-options">
+        <span class="footer-options text-center">
     
             <?php if ($display_login_button): ?>
                 <?php if (session('user_id')): ?>
                     <?php if (session('role_slug') === DB_SLUG_CUSTOMER): ?>
+                        <!-- Mostrar botón "Consultar calendario" para clientes -->
+                        <a class="backend-link badge bg-primary text-decoration-none px-2 me-2"
+                           href="<?= site_url('calendar_readonly') ?>">
+                            <i class="fas fa-calendar-alt me-2"></i>
+                            Consultar calendario
+                        </a>
                         <!-- Mostrar "Cerrar sesión" para clientes -->
                         <a class="backend-link badge bg-danger text-decoration-none px-2"
                            href="<?= site_url('logout') ?>">
