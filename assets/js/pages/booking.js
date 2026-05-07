@@ -115,6 +115,7 @@ App.Pages.Booking = (function () {
                 );
                 
                 const isDayRange = appointmentType === 'day-range' || (service && service.booking_type === 'days');
+                const isDaysHours = appointmentType === 'days-hours';
                 
                 if (isDayRange) {
                     // Update the day range display
@@ -152,6 +153,10 @@ App.Pages.Booking = (function () {
                         $('#day-range-end-display').text('-');
                         $('#day-range-total').hide();
                     }
+                } else if (isDaysHours && mode === 'range') {
+                    // Handle range selection for days-hours (show progress even with 1 date)
+                    updateSelectedDatesHours(selectedDates);
+                    App.Pages.Booking.updateConfirmFrame();
                 } else {
                     // For regular bookings: get available hours
                     if (selectedDates.length > 0) {
@@ -598,6 +603,18 @@ App.Pages.Booking = (function () {
                 
                 // Check for existing bookings and disable those dates
                 checkAndDisableBookedDates();
+            } else if (appointmentType === 'days-hours') {
+                $hoursContainer.hide();
+                $('#day-range-container').hide();
+                $('#days-hours-container').show();
+                // Clear selected hour when switching to days-hours
+                $availableHours.find('.selected-hour').removeClass('selected-hour');
+                
+                // Reinitialize date picker in RANGE mode for selecting start and end dates
+                initializeDatePickerWithMode('range');
+                
+                // Check for existing bookings and disable those dates
+                checkAndDisableBookedDates();
             }
             
             App.Pages.Booking.updateConfirmFrame();
@@ -607,12 +624,19 @@ App.Pages.Booking = (function () {
         if ($selectAppointmentType.val() === 'hours') {
             $hoursContainer.show();
             $('#day-range-container').hide();
+            $('#days-hours-container').hide();
         } else if ($selectAppointmentType.val() === 'day-range') {
             $hoursContainer.hide();
             $('#day-range-container').show();
+            $('#days-hours-container').hide();
+        } else if ($selectAppointmentType.val() === 'days-hours') {
+            $hoursContainer.hide();
+            $('#day-range-container').hide();
+            $('#days-hours-container').show();
         } else {
             $hoursContainer.hide();
             $('#day-range-container').hide();
+            $('#days-hours-container').hide();
         }
 
         /**
@@ -1096,6 +1120,78 @@ App.Pages.Booking = (function () {
     }
 
     /**
+     * Updates the selected dates and hours display for days-hours mode
+     */
+    function updateSelectedDatesHours(selectedDates) {
+        const $container = $('#selected-dates-hours');
+        $container.empty();
+
+        if (selectedDates.length === 0) {
+            $container.append('<p class="text-muted">Selecciona la fecha de inicio del rango.</p>');
+            return;
+        }
+
+        if (selectedDates.length === 1) {
+            const startDate = moment(selectedDates[0]);
+            $container.append(`
+                <div class="alert alert-info mb-3">
+                    <strong>Fecha de inicio seleccionada:</strong> ${startDate.format('DD/MM/YYYY')}<br>
+                    <em>Ahora selecciona la fecha de fin del rango.</em>
+                </div>
+            `);
+            return;
+        }
+
+        // selectedDates.length >= 2
+        const startDate = moment(selectedDates[0]);
+        const endDate = moment(selectedDates[1]);
+
+        // Generate all workdays in the range (excluding weekends)
+        const workdays = [];
+        let currentDate = startDate.clone();
+        while (currentDate.isSameOrBefore(endDate)) {
+            const dayOfWeek = currentDate.day();
+            // Skip weekends: 0 = Sunday, 6 = Saturday
+            if (dayOfWeek !== 0 && dayOfWeek !== 6) {
+                workdays.push(currentDate.format('YYYY-MM-DD'));
+            }
+            currentDate.add(1, 'day');
+        }
+
+        if (workdays.length === 0) {
+            $container.append('<p class="text-muted">No hay días laborables en el rango seleccionado.</p>');
+            return;
+        }
+
+        // Display selected date range and workdays
+        const dateRangeText = `${startDate.format('DD/MM/YYYY')} - ${endDate.format('DD/MM/YYYY')}`;
+        const workdaysText = workdays.map(date => moment(date).format('DD/MM')).join(', ');
+        
+        $container.append(`
+            <div class="alert alert-info mb-3">
+                <strong>Rango seleccionado:</strong> ${dateRangeText}<br>
+                <strong>Días laborables (${workdays.length}):</strong> ${workdaysText}
+            </div>
+        `);
+
+        // Single hours container for all workdays
+        const $hoursSection = $(`
+            <div class="hours-section mb-3">
+                <h6 class="mb-3">
+                    <i class="fas fa-clock text-primary me-2"></i>
+                    Selecciona las horas para todos los días laborables:
+                </h6>
+                <div class="hours-container p-3 border rounded bg-light" id="all-dates-hours"></div>
+            </div>
+        `);
+
+        $container.append($hoursSection);
+
+        // Get available hours for the first workday (assuming same availability)
+        App.Http.Booking.getAvailableHoursForDate(workdays[0], '#all-dates-hours');
+    }
+
+    /**
      * Every time this function is executed, it updates the confirmation page with the latest
      * customer settings and input for the appointment booking.
      */
@@ -1144,7 +1240,6 @@ App.Pages.Booking = (function () {
         const selectedDate = selectedDateMoment.format('YYYY-MM-DD');
         
         // Get all selected hours
-        const $selectedHours = $availableHours.find('.selected-hour');
         let selectedTimesText = '';
         
         if (appointmentType === 'hours' && $selectedHours.length > 0) {
@@ -1153,6 +1248,24 @@ App.Pages.Booking = (function () {
                 times.push($(this).text());
             });
             selectedTimesText = times.join(', ');
+        } else if (appointmentType === 'days-hours') {
+            // Collect selected date range and times for days-hours
+            const flatpickrInstance = $selectDate[0]._flatpickr;
+            if (flatpickrInstance && flatpickrInstance.selectedDates.length >= 2) {
+                const startDate = moment(flatpickrInstance.selectedDates[0]).format(vars('date_format'));
+                const endDate = moment(flatpickrInstance.selectedDates[1]).format(vars('date_format'));
+                const $selectedHours = $('#all-dates-hours .selected-hour');
+                const times = [];
+                $selectedHours.each(function() {
+                    times.push($(this).text());
+                });
+                selectedTimesText = `Rango: ${startDate} - ${endDate} - Horas: ${times.join(', ')}`;
+            } else if (flatpickrInstance && flatpickrInstance.selectedDates.length === 1) {
+                const startDate = moment(flatpickrInstance.selectedDates[0]).format(vars('date_format'));
+                selectedTimesText = `Fecha inicio: ${startDate} - Selecciona fecha fin`;
+            } else {
+                selectedTimesText = 'Selecciona fecha de inicio';
+            }
         }
 
         let formattedSelectedDate = '';
@@ -1168,6 +1281,18 @@ App.Pages.Booking = (function () {
                 formattedSelectedDate = `${formattedStartDate} - ${formattedEndDate} (Tramo de días)`;
             } else if (appointmentType === 'full-day') {
                 formattedSelectedDate = App.Utils.Date.format(selectedDate, vars('date_format'), vars('time_format'), false) + ' (Día entero)';
+            } else if (appointmentType === 'days-hours') {
+                const flatpickrInstance = $selectDate[0]._flatpickr;
+                if (flatpickrInstance && flatpickrInstance.selectedDates.length >= 2) {
+                    const startDate = moment(flatpickrInstance.selectedDates[0]).format('YYYY-MM-DD');
+                    const endDate = moment(flatpickrInstance.selectedDates[1]).format('YYYY-MM-DD');
+                    formattedSelectedDate = `Rango: ${App.Utils.Date.format(startDate, vars('date_format'), vars('time_format'), false)} - ${App.Utils.Date.format(endDate, vars('date_format'), vars('time_format'), false)}`;
+                } else if (flatpickrInstance && flatpickrInstance.selectedDates.length === 1) {
+                    const startDate = moment(flatpickrInstance.selectedDates[0]).format('YYYY-MM-DD');
+                    formattedSelectedDate = `Inicio: ${App.Utils.Date.format(startDate, vars('date_format'), vars('time_format'), false)} - Selecciona fin`;
+                } else {
+                    formattedSelectedDate = 'Selecciona rango de fechas';
+                }
             } else {
                 formattedSelectedDate =
                     App.Utils.Date.format(selectedDate, vars('date_format'), vars('time_format'), false) +
@@ -1330,6 +1455,71 @@ App.Pages.Booking = (function () {
                 id_users_provider: $selectProvider.val(),
                 id_services: $selectService.val(),
             };
+        } else if (appointmentType === 'days-hours') {
+            // For days-hours appointments, get workdays from range and create combinations with selected hours
+            const appointments = [];
+            
+            // Get selected date range
+            const flatpickrInstance = $selectDate[0]._flatpickr;
+            if (!flatpickrInstance || flatpickrInstance.selectedDates.length < 2) {
+                // Not enough dates selected
+                return;
+            }
+            
+            const startDate = moment(flatpickrInstance.selectedDates[0]);
+            const endDate = moment(flatpickrInstance.selectedDates[1]);
+            
+            // Generate workdays in range
+            const workdays = [];
+            let currentDate = startDate.clone();
+            while (currentDate.isSameOrBefore(endDate)) {
+                const dayOfWeek = currentDate.day();
+                if (dayOfWeek !== 0 && dayOfWeek !== 6) { // Skip weekends
+                    workdays.push(currentDate.format('YYYY-MM-DD'));
+                }
+                currentDate.add(1, 'day');
+            }
+            
+            // Get selected hours
+            const $selectedHours = $('#all-dates-hours .selected-hour');
+            if ($selectedHours.length === 0) {
+                // No hours selected
+                return;
+            }
+            
+            // Find selected service duration
+            const serviceId = $selectService.val();
+            const service = vars('available_services').find(
+                (availableService) => Number(availableService.id) === Number(serviceId),
+            );
+            const serviceDuration = parseInt(service.duration);
+            
+            // Create appointment for each workday × hour combination
+            workdays.forEach(dateStr => {
+                $selectedHours.each(function() {
+                    const selectedHourValue = $(this).data('value'); // HH:mm
+                    
+                    const startDatetime = dateStr + ' ' + selectedHourValue + ':00';
+                    const endMoment = moment(dateStr + ' ' + selectedHourValue).add({'minutes': serviceDuration});
+                    const endDatetime = endMoment.format('YYYY-MM-DD HH:mm:ss');
+                    
+                    appointments.push({
+                        start_datetime: startDatetime,
+                        end_datetime: endDatetime,
+                        notes: appointmentNotes,
+                        is_unavailability: false,
+                        id_users_provider: $selectProvider.val(),
+                        id_services: $selectService.val(),
+                    });
+                });
+            });
+            
+            // Store multiple appointments
+            if (appointments.length > 1) {
+                data.appointments = appointments;
+            } else if (appointments.length === 1) {
+                data.appointment = appointments[0];
+            }
         } else {
             // For hourly appointments, handle multiple selections
             const $selectedHours = $availableHours.find('.selected-hour');

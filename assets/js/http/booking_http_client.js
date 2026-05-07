@@ -149,6 +149,127 @@ App.Http.Booking = (function () {
     }
 
     /**
+     * Get Available Hours for a specific date and container
+     *
+     * @param {String} selectedDate The selected date
+     * @param {String} containerSelector The selector for the container to fill
+     */
+    function getAvailableHoursForDate(selectedDate, containerSelector) {
+        const $container = $(containerSelector);
+        $container.empty();
+
+        // Find the selected service duration (it is going to be send within the "data" object).
+        const serviceId = $selectService.val();
+
+        // Default value of duration (in minutes).
+        let serviceDuration = 15;
+
+        const service = vars('available_services').find(
+            (availableService) => Number(availableService.id) === Number(serviceId),
+        );
+
+        if (service) {
+            serviceDuration = service.duration;
+        }
+
+        // If the manage mode is true then the appointment's start date should return as available too.
+        const appointmentId = vars('manage_mode') ? vars('appointment_data').id : null;
+
+        // Make ajax post request and get the available hours.
+        const url = App.Utils.Url.siteUrl('booking/get_available_hours');
+
+        const data = {
+            csrf_token: vars('csrf_token'),
+            service_id: $selectService.val(),
+            provider_id: $selectProvider.val(),
+            selected_date: selectedDate,
+            service_duration: serviceDuration,
+            manage_mode: Number(vars('manage_mode') || 0),
+            appointment_id: appointmentId,
+        };
+
+        $.post(url, data).done((response) => {
+            $container.empty();
+
+            // The response contains the available hours for the selected provider and service. Fill the container
+            if (response.length > 0) {
+                let providerId = $selectProvider.val();
+
+                if (providerId === 'any-provider') {
+                    for (const availableProvider of vars('available_providers')) {
+                        if (availableProvider.services.indexOf(Number(serviceId)) !== -1) {
+                            providerId = availableProvider.id; // Use first available provider.
+                            break;
+                        }
+                    }
+                }
+
+                const provider = vars('available_providers').find(
+                    (availableProvider) => Number(providerId) === Number(availableProvider.id),
+                );
+
+                if (!provider) {
+                    throw new Error('Could not find provider.');
+                }
+
+                const providerTimezone = provider.timezone;
+                const selectedTimezone = $('#select-timezone').val();
+                const timeFormat = vars('time_format') === 'regular' ? 'h:mm a' : 'HH:mm';
+
+                const $hoursGrid = $('<div/>', {
+                    'class': 'hours-grid d-flex flex-wrap gap-2',
+                });
+
+                response.forEach((availableHour) => {
+                    const availableHourMoment = moment
+                        .tz(selectedDate + ' ' + availableHour + ':00', providerTimezone)
+                        .tz(selectedTimezone);
+
+                    if (availableHourMoment.format('YYYY-MM-DD') !== selectedDate) {
+                        return; // Due to the selected timezone the available hour belongs to another date.
+                    }
+
+                    const $hourButton = $('<button/>', {
+                        'class': 'btn btn-outline-secondary available-hour',
+                        'type': 'button',
+                        'data': {
+                            'value': availableHour,
+                            'date': selectedDate,
+                        },
+                        'html': `<span>${availableHourMoment.format(timeFormat)}</span>`,
+                    });
+
+                    $hoursGrid.append($hourButton);
+                });
+
+                $container.append($hoursGrid);
+
+                // Allow multiple selection for days-hours mode with legacy button style
+                $container.find('.available-hour').on('click', function() {
+                    const $button = $(this);
+                    const isSelected = $button.hasClass('selected-hour');
+
+                    if (isSelected) {
+                        $button.removeClass('selected-hour btn-primary').addClass('btn-outline-secondary');
+                    } else {
+                        $button.addClass('selected-hour btn-primary').removeClass('btn-outline-secondary');
+                    }
+                });
+            }
+
+            if (!$container.find('.available-hour').length) {
+                $container.html(`
+                    <div class="alert alert-warning py-4 text-center">
+                        <i class="fas fa-exclamation-triangle fa-2x mb-3 text-warning"></i>
+                        <h6 class="mb-2">No hay horas disponibles</h6>
+                        <p class="mb-0 text-muted">Intenta seleccionar un rango de fechas diferente o contacta al administrador.</p>
+                    </div>
+                `);
+            }
+        });
+    }
+
+    /**
      * Register an appointment to the database.
      *
      * This method will make an ajax call to the appointments controller that will register
@@ -480,6 +601,7 @@ App.Http.Booking = (function () {
     return {
         registerAppointment,
         getAvailableHours,
+        getAvailableHoursForDate,
         getUnavailableDates,
         applyPreviousUnavailableDates,
         deletePersonalInformation,
