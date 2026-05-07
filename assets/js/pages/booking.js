@@ -1394,15 +1394,28 @@ App.Pages.Booking = (function () {
             custom_field_5: $customField5.val(),
         };
 
-        // Construir las notas de la cita combinando notes y custom_field_1
+        // Construir las notas de la cita combinando notes y artículos
         let appointmentNotes = $notes.val() || '';
-        const customField1Value = $customField1.val();
+        const articlesDataField = document.getElementById('articles-data');
         
-        if (customField1Value && customField1Value.trim() !== '') {
-            if (appointmentNotes) {
-                appointmentNotes += '\n\n';
+        if (articlesDataField && articlesDataField.value) {
+            try {
+                const articlesData = JSON.parse(articlesDataField.value);
+                if (articlesData && articlesData.length > 0) {
+                    let articlesText = 'Artículos necesarios:\n';
+                    articlesData.forEach(function(item) {
+                        articlesText += '- ' + item.article + ': ' + item.quantity + 
+                            (item.quantity === 1 ? ' unidad' : ' unidades') + '\n';
+                    });
+                    if (appointmentNotes) {
+                        appointmentNotes += '\n\n';
+                    }
+                    appointmentNotes += articlesText;
+                }
+            } catch (e) {
+                console.error('Error al parsear artículos:', e);
             }
-            appointmentNotes += 'Objetos requeridos: ' + customField1Value;
+        }
         }
 
         if (isDayRangeBooking) {

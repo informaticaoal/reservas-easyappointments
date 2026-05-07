@@ -310,6 +310,7 @@ App.Http.Booking = (function () {
             method: 'post',
             data: data,
             dataType: 'json',
+            timeout: 60000,
             beforeSend: () => {
                 // Create overlay with spinner
                 $layer.appendTo('body').css({
@@ -377,11 +378,16 @@ App.Http.Booking = (function () {
 
                 window.location.href = App.Utils.Url.siteUrl('booking_confirmation/of/' + response.appointment_hash);
             })
-            .fail(() => {
+            .fail((jqXHR, textStatus) => {
                 $captchaTitle.find('button').trigger('click');
+                if (textStatus === 'timeout') {
+                    alert('La solicitud está tardando demasiado. Por favor intenta de nuevo.');
+                }
             })
             .always(() => {
-                $layer.remove();
+                if ($layer && $layer.parent().length > 0) {
+                    $layer.remove();
+                }
             });
     }
 
