@@ -1241,6 +1241,7 @@ App.Pages.Booking = (function () {
         
         // Get all selected hours
         let selectedTimesText = '';
+        const $selectedHours = $availableHours.find('.selected-hour');
         
         if (appointmentType === 'hours' && $selectedHours.length > 0) {
             const times = [];
@@ -1415,7 +1416,6 @@ App.Pages.Booking = (function () {
             } catch (e) {
                 console.error('Error al parsear artículos:', e);
             }
-        }
         }
 
         if (isDayRangeBooking) {
