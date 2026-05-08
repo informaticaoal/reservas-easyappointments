@@ -28,6 +28,7 @@
                             <option value="hours">Por horas</option>
                             <option value="full-day">Día entero</option>
                             <option value="day-range">Por Tramo de Días</option>
+                            <option value="days-hours">Por días y horas específicas</option>
                         </select>
                     </div>
 
@@ -75,6 +76,17 @@
                                 </div>
                             </div>
                         </div>
+                    </div>
+
+                    <div id="days-hours-container" style="display: none;">
+                        <div class="alert alert-info py-2 px-3 mb-3" style="font-size: 0.9rem;">
+                            <i class="fas fa-calendar-check me-2"></i>
+                            <small><strong>Selecciona un rango de días y horas:</strong><br>
+                            1. Selecciona la <strong>fecha de inicio</strong> y <strong>fecha de fin</strong> en el calendario<br>
+                            2. Elige las horas que se aplicarán a <strong>todos los días laborables</strong> del rango<br>
+                            <em class="text-muted">* Solo se incluyen días laborables (L-V)</em></small>
+                        </div>
+                        <div id="selected-dates-hours"></div>
                     </div>
 
                     <?php slot('after_available_hours'); ?>
