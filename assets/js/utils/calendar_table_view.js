@@ -29,6 +29,7 @@ App.Utils.CalendarTableView = (function () {
     const $unavailabilitiesModal = $('#unavailabilities-modal');
     const $header = $('#header');
     const $footer = $('#footer');
+    const objectReservationsMode = new URLSearchParams(window.location.search).get('objects') === '1';
     let $filterProvider;
     let $filterService;
     let $selectDate;
@@ -76,7 +77,7 @@ App.Utils.CalendarTableView = (function () {
             const endDateMoment = startDateMoment.clone().add(dayInterval - 1, 'days');
             const endDate = endDateMoment.toDate();
 
-            App.Http.Calendar.getCalendarAppointmentsForTableView(startDate, endDate).done((response) => {
+            App.Http.Calendar.getCalendarAppointmentsForTableView(startDate, endDate, objectReservationsMode).done((response) => {
                 let currentDate = startDate;
 
                 while (currentDate <= endDate) {

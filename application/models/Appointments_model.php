@@ -516,6 +516,24 @@ class Appointments_model extends EA_Model
     }
 
     /**
+     * Count appointments that include requested objects in the notes.
+     *
+     * @return int Returns the number of object-related appointments.
+     */
+    public function count_object_reservations(): int
+    {
+        $result = $this->db
+            ->select('COUNT(*) AS count')
+            ->from('appointments')
+            ->where('is_unavailability', false)
+            ->like('notes', 'Artículos necesarios:')
+            ->get()
+            ->row_array();
+
+        return isset($result['count']) ? (int) $result['count'] : 0;
+    }
+
+    /**
      * Load related resources to an appointment.
      *
      * @param array $appointment Associative array with the appointment data.

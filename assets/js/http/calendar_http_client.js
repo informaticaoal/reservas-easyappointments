@@ -208,7 +208,7 @@ App.Http.Calendar = (function () {
      *
      * @returns {jQuery.jqXHR}
      */
-    function getCalendarAppointments(recordId, startDate, endDate, filterType) {
+    function getCalendarAppointments(recordId, startDate, endDate, filterType, objectReservations = false) {
         const url = App.Utils.Url.siteUrl('calendar/get_calendar_appointments');
 
         const data = {
@@ -219,6 +219,10 @@ App.Http.Calendar = (function () {
             filter_type: filterType,
         };
 
+        if (objectReservations) {
+            data.objects = 1;
+        }
+
         return $.post(url, data);
     }
 
@@ -227,10 +231,11 @@ App.Http.Calendar = (function () {
      *
      * @param {Date} startDate
      * @param {Date} endDate
+     * @param {Boolean} objectReservations
      *
      * @return {*|jQuery}
      */
-    function getCalendarAppointmentsForTableView(startDate, endDate) {
+    function getCalendarAppointmentsForTableView(startDate, endDate, objectReservations = false) {
         const url = App.Utils.Url.siteUrl('calendar/get_calendar_appointments_for_table_view');
 
         const data = {
@@ -238,6 +243,10 @@ App.Http.Calendar = (function () {
             start_date: moment(startDate).format('YYYY-MM-DD'),
             end_date: moment(endDate).format('YYYY-MM-DD'),
         };
+
+        if (objectReservations) {
+            data.objects = 1;
+        }
 
         return $.post(url, data);
     }

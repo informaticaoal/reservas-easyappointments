@@ -31,6 +31,7 @@ App.Utils.CalendarDefaultView = (function () {
     const FILTER_TYPE_PROVIDER = 'provider';
     const FILTER_TYPE_SERVICE = 'service';
     const moment = window.moment;
+    const objectReservationsMode = new URLSearchParams(window.location.search).get('objects') === '1';
 
     let $popoverTarget;
     let fullCalendar = null;
@@ -1200,7 +1201,7 @@ App.Utils.CalendarDefaultView = (function () {
 
         endDate = moment(endDate).format('YYYY-MM-DD');
 
-        App.Http.Calendar.getCalendarAppointments(recordId, startDate, endDate, filterType)
+        App.Http.Calendar.getCalendarAppointments(recordId, startDate, endDate, filterType, objectReservationsMode)
             .done((response) => {
                 const calendarEventSources = fullCalendar.getEventSources();
 
