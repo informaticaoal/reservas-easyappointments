@@ -227,6 +227,22 @@ class Calendar extends EA_Controller
     }
 
     /**
+     * Return the number of reservations with requested objects.
+     */
+    public function object_reservations_count(): void
+    {
+        if (cannot('view', PRIV_APPOINTMENTS)) {
+            abort(403, 'Forbidden');
+        }
+
+        $count = $this->appointments_model->count_object_reservations();
+
+        $this->output
+            ->set_content_type('application/json')
+            ->set_output(json_encode(['count' => $count]));
+    }
+
+    /**
      * Save appointment changes that are made from the backend calendar page.
      */
     public function save_appointment(): void
@@ -562,18 +578,20 @@ class Calendar extends EA_Controller
             }
 
             $start_date = request('start_date') . ' 00:00:00';
-
             $end_date = request('end_date') . ' 23:59:59';
+            $objects = request('objects') === '1';
+
+            $appointments_where = "start_datetime >= '{$start_date}' AND end_datetime <= '{$end_date}'";
+
+            if ($objects) {
+                $appointments_where .= " AND notes LIKE '%Artículos necesarios:%'";
+            }
 
             $response = [
-                'appointments' => $this->appointments_model->get([
-                    'start_datetime >=' => $start_date,
-                    'end_datetime <=' => $end_date,
-                ]),
-                'unavailabilities' => $this->unavailabilities_model->get([
-                    'start_datetime >=' => $start_date,
-                    'end_datetime <=' => $end_date,
-                ]),
+                'appointments' => $this->appointments_model->get($appointments_where),
+                'unavailabilities' => $this->unavailabilities_model->get(
+                    "start_datetime >= '{$start_date}' AND end_datetime <= '{$end_date}'",
+                ),
             ];
 
             foreach ($response['appointments'] as &$appointment) {
@@ -585,7 +603,6 @@ class Calendar extends EA_Controller
             unset($appointment);
 
             $user_id = session('user_id');
-
             $role_slug = session('role_slug');
 
             // If the current user is a provider he must only see his own appointments.
@@ -634,10 +651,7 @@ class Calendar extends EA_Controller
 
             unset($unavailability);
 
-            // Add blocked periods to the response.
-            $start_date = request('start_date');
-            $end_date = request('end_date');
-            $response['blocked_periods'] = $this->blocked_periods_model->get_for_period($start_date, $end_date);
+            $response['blocked_periods'] = $this->blocked_periods_model->get_for_period(request('start_date'), request('end_date'));
 
             json_response($response);
         } catch (Throwable $e) {
@@ -709,6 +723,12 @@ class Calendar extends EA_Controller
                 ')) 
                 AND is_unavailability = 0
             ';
+
+            $objects = request('objects') === '1';
+
+            if ($objects) {
+                $where_clause .= " AND notes LIKE '%Artículos necesarios:%'";
+            }
 
             $response['appointments'] = $this->appointments_model->get($where_clause);
 
