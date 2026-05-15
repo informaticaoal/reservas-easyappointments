@@ -74,9 +74,6 @@
                     <a class="dropdown-item" href="<?= site_url('providers') ?>">
                         <?= lang('providers') ?>
                     </a>
-                    <!-- <a class="dropdown-item" href="<?= site_url('secretaries') ?>">
-                        <?= lang('secretaries') ?>
-                    </a> -->
                     <a class="dropdown-item" href="<?= site_url('admins') ?>">
                         <?= lang('admins') ?>
                     </a>
@@ -110,9 +107,6 @@
 
                     <a class="dropdown-item" href="<?= site_url('account') ?>">
                         <?= lang('account') ?>
-                    </a>
-                    <a class="dropdown-item" href="<?= site_url('about') ?>">
-                        <?= lang('about') ?>
                     </a>
                     <div class="dropdown-divider"></div>
                     <a class="dropdown-item" href="<?= site_url('logout') ?>">

@@ -8,13 +8,15 @@
 
 <div id="wizard-frame-1" class="wizard-frame" style="visibility: hidden;">
     <div class="frame-container">
-        <h2 class="frame-title mt-md-5"><?= lang('service_and_provider') ?></h2>
+        <h2 class="frame-title mt-md-5">
+            Seleccione la sala a reservar
+        </h2>
 
         <div class="row frame-content">
             <div class="col col-md-8 offset-md-2">
                 <div class="mb-3">
                     <label for="select-service">
-                        <strong><?= lang('service') ?></strong>
+                        <strong>Sala</strong>
                     </label>
 
                     <select id="select-service" class="form-select">
@@ -83,7 +85,7 @@
 
                 <div class="mb-3" hidden>
                     <label for="select-provider">
-                        <strong><?= lang('provider') ?></strong>
+                        <strong>Zona</strong>
                     </label>
 
                     <select id="select-provider" class="form-select">
@@ -94,10 +96,6 @@
                 </div>
 
                 <?php slot('after_select_provider'); ?>
-
-                <div id="service-description" class="small">
-                    <!-- JS -->
-                </div>
 
                 <?php slot('after_service_description'); ?>
 
